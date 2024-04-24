@@ -1,2 +1,2 @@
 # SynFormer
-Am encoder-decoder transformer model that models retrosynthetic analysis along with novel metrics for evaluation.
+An encoder-decoder transformer model that models retrosynthetic analysis along with novel metrics for evaluation.
