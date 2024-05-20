@@ -490,3 +490,73 @@ class FineTuneReactionDataModule(_AbsDataModule):
             "target_smiles": target_smiles
         }
         return collate_output
+
+class RetroDataModule(_AbsDataModule):
+    def __init__(
+        self,
+        dataset: ReactionDataset,
+        tokeniser,
+        batch_size: int,
+        max_seq_len: int,
+        train_token_batch_size: Optional[int] = None,
+        num_buckets: Optional[int] = None,
+        forward_pred: Optional[bool] = True,
+        val_idxs: Optional[List[int]] = None, 
+        test_idxs: Optional[List[int]] = None,
+        split_perc: Optional[float] = 0.2,
+        pin_memory: Optional[bool] = True,
+        unified_model: Optional[bool] = False
+    ):
+        super().__init__(
+            dataset,
+            tokeniser,
+            batch_size,
+            max_seq_len,
+            train_token_batch_size=train_token_batch_size,
+            num_buckets=num_buckets,
+            val_idxs=val_idxs, 
+            test_idxs=test_idxs,
+            split_perc=split_perc,
+            pin_memory=pin_memory
+        )
+
+        if forward_pred:
+            print("Building data module for forward prediction task...")
+        else:
+            print("Building data module for backward prediction task...")
+
+        self.forward_pred = forward_pred
+
+    def _collate(self, batch, train=True):
+
+        reacts_smiles, prods_smiles = tuple(zip(*batch))
+        reacts_output = self.tokeniser(reacts_smiles,  padding=True, return_tensors='pt')
+        prods_output = self.tokeniser(prods_smiles,  padding=True, return_tensors='pt')
+        
+        reacts_token_ids = reacts_output['input_ids'].transpose(0, 1)
+        prods_token_ids = prods_output['input_ids'].transpose(0, 1)
+        reacts_pad_mask = reacts_output['attention_mask'].transpose(0, 1)
+        prods_pad_mask = prods_output['attention_mask'].transpose(0, 1)
+
+        if self.forward_pred:
+            collate_output = {
+                "encoder_input": reacts_token_ids,
+                "encoder_pad_mask": reacts_pad_mask,
+                "decoder_input": prods_token_ids[:-1, :],
+                "decoder_pad_mask": prods_pad_mask[:-1, :],
+                "target": prods_token_ids.clone()[1:, :],
+                "target_mask": prods_pad_mask.clone()[1:, :],
+                "target_smiles": prods_smiles
+            }
+        else:
+            collate_output = {
+                "encoder_input": prods_token_ids,
+                "encoder_pad_mask": prods_pad_mask,
+                "decoder_input": reacts_token_ids,
+                "decoder_pad_mask": reacts_pad_mask,
+                "target": reacts_token_ids.clone()[1:, :],
+                "target_mask": reacts_pad_mask.clone()[1:, :],
+                "target_smiles": reacts_smiles
+            }
+
+        return collate_output

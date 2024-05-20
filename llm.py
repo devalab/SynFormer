@@ -24,8 +24,10 @@ from x_transformers.autoregressive_wrapper import top_k
 
 import Chemformer.molbart.util as util
 from Chemformer.molbart.data.datasets import Uspto50, UsptoMixed
-from Chemformer.molbart.data.datamodules import FineTuneReactionDataModule
+from Chemformer.molbart.data.datamodules import FineTuneReactionDataModule, RetroDataModule
 from benchmark import Metrics
+
+from transformers import AutoTokenizer
 
 # disable rdkit warnings
 from rdkit import RDLogger
@@ -52,6 +54,8 @@ parser.add_argument('--beta2', type=float, default=0.999, help='beta2')
 parser.add_argument('--weight_decay', type=float, default=1e-1, help='weight decay')
 parser.add_argument('--lr_scheduler', type=str, default='onecycle', help='lr scheduler')
 parser.add_argument('--dividing_factor', type=float, default=10000, help='dividing factor for lr scheduler')
+parser.add_argument('--filter_value', type=int, default=0, help='filter value for dataset')
+parser.add_argument('--bpe_tokeniser', action=argparse.BooleanOptionalAction, help='whether to use bpe tokeniser')
 
 parser.add_argument('--data_dir', type=str, default='data/', help='data directory')
 parser.add_argument('--validate_every', type=int, default=500, help='train iterations')
@@ -90,10 +94,8 @@ class Chemformer(pl.LightningModule):
         super().__init__()
         self.config = config
 
-        with open('Chemformer/my_vocab.txt', 'r') as f:
-            vocab = f.read().split('\n')
-        self.token_encode = {v: k for k, v in enumerate(vocab)}
-        self.token_decode = {k: v for k, v in enumerate(vocab)}
+        self.token_encode = {v: k for k, v in enumerate(config['vocab'])} if type(config['vocab']) == list else config['vocab']
+        self.token_decode = {k: v for k, v in enumerate(config['vocab'])} if type(config['vocab']) == list else {v: k for k, v in config['vocab'].items()}
 
         self.llm = XTransformer(
             dim = config['n_embd'],
@@ -196,10 +198,15 @@ class Chemformer(pl.LightningModule):
         gen_seq = self.llm.generate(seq_in=products, seq_out_start=reactants[:, :1], seq_len=reactants.shape[1], 
                                     mask=src_mask, eos_token=self.config['end_token_id'], filter_kwargs={'k': 1})
 
-        prods = [''.join([self.token_decode[t.item()] for t in prod if t.item() != self.config['pad_token_id']])[1:-1].split('.') for prod in products]
-        reacts = [''.join([self.token_decode[t.item()] for t in react if t.item() != self.config['pad_token_id']])[1:-1].split('.') for react in reactants]
-        gens = [''.join([self.token_decode[t.item()] for t in gen if t.item() != self.config['pad_token_id']]) for gen in gen_seq]
-        gens = [g[:g.find('&')].split('.') if g.find('&') != -1 else g.split('.') for g in gens]
+        if not self.config['bpe_tokeniser']:
+            prods = [''.join([self.token_decode[t.item()] for t in prod if t.item() != self.config['pad_token_id']])[1:-1].split('.') for prod in products]
+            reacts = [''.join([self.token_decode[t.item()] for t in react if t.item() != self.config['pad_token_id']])[1:-1].split('.') for react in reactants]
+            gens = [''.join([self.token_decode[t.item()] for t in gen if t.item() != self.config['pad_token_id']]) for gen in gen_seq]
+            gens = [g[:g.find(config['end_token'])].split('.') if g.find(config['end_token']) != -1 else g.split('.') for g in gens]
+        else:
+            prods = [t.split('.') for t in tokeniser.batch_decode(products, skip_special_tokens=True)]
+            reacts = [t.split('.') for t in  tokeniser.batch_decode(reactants, skip_special_tokens=True)]
+            gens = [t.split('.') for t in tokeniser.batch_decode(gen_seq, skip_special_tokens=True)]
         
         return prods, reacts, gens
 
@@ -211,12 +218,17 @@ class Chemformer(pl.LightningModule):
 
         beam_width = self.config['beam_width']
         gen_seq, probs = self.llm.beam_generate(seq_in=products, mask=src_mask, beam_width=beam_width)
-        gen_seq = gen_seq[:, 1:]
 
-        prods = [''.join([self.token_decode[t.item()] for t in prod if t.item() != self.config['pad_token_id']])[1:-1].split('.') for prod in products]
-        reacts = [''.join([self.token_decode[t.item()] for t in react if t.item() != self.config['pad_token_id']])[1:-1].split('.') for react in reactants]
-        gens = [''.join([self.token_decode[t.item()] for t in gen if t.item() != self.config['pad_token_id']]) for gen in gen_seq]
-        gens = [g[:g.find('&')].split('.') if g.find('&') != -1 else g.split('.') for g in gens]
+        if not self.config['bpe_tokeniser']:
+            gen_seq = gen_seq[:, 1:]
+            prods = [''.join([self.token_decode[t.item()] for t in prod if t.item() != self.config['pad_token_id']])[1:-1].split('.') for prod in products]
+            reacts = [''.join([self.token_decode[t.item()] for t in react if t.item() != self.config['pad_token_id']])[1:-1].split('.') for react in reactants]
+            gens = [''.join([self.token_decode[t.item()] for t in gen if t.item() != self.config['pad_token_id']]) for gen in gen_seq]
+            gens = [g[:g.find(config['end_token'])].split('.') if g.find(config['end_token']) != -1 else g.split('.') for g in gens]
+        else:
+            prods = tokeniser.batch_decode(products, skip_special_tokens=True).split('.')
+            reacts = tokeniser.batch_decode(reactants, skip_special_tokens=True).split('.')
+            gens = tokeniser.batch_decode(gen_seq, skip_special_tokens=True).split('.')
         
         return prods, reacts, gens
     
@@ -250,33 +262,56 @@ if __name__ == '__main__':
     gc.collect()
 
     print("Building tokeniser...")
-    tokeniser = util.load_tokeniser('Chemformer/my_vocab.txt', 272)
+    tokeniser = util.load_tokeniser('data/uspto50/my_vocab.txt', 272) if not config['bpe_tokeniser'] else AutoTokenizer.from_pretrained("seyonec/PubChem10M_SMILES_BPE_396_250")
     print("Finished tokeniser.")
 
-    config['pad_token_id'] = tokeniser.vocab[tokeniser.pad_token]
-    config['mask_token_id'] = tokeniser.vocab[tokeniser.mask_token]
-    config['begin_token_id'] = tokeniser.vocab[tokeniser.begin_token]
-    config['end_token_id'] = tokeniser.vocab[tokeniser.end_token]
-    config['sep_token_id'] = tokeniser.vocab[tokeniser.sep_token]
+    with open('data/uspto50/my_vocab.txt', 'r') as f:
+        vocab = f.read().split('\n')
+    config['vocab'] = vocab if not config['bpe_tokeniser'] else tokeniser.get_vocab()
+
+    config['pad_token_id'] = tokeniser.vocab[tokeniser.pad_token] if not config['bpe_tokeniser'] else tokeniser.pad_token_id
+    config['mask_token_id'] = tokeniser.vocab[tokeniser.mask_token] if not config['bpe_tokeniser'] else tokeniser.mask_token_id
+    config['begin_token_id'] = tokeniser.vocab[tokeniser.begin_token] if not config['bpe_tokeniser'] else tokeniser.bos_token_id
+    config['end_token_id'] = tokeniser.vocab[tokeniser.end_token] if not config['bpe_tokeniser'] else tokeniser.eos_token_id
+    config['sep_token_id'] = tokeniser.vocab[tokeniser.sep_token] if not config['bpe_tokeniser'] else tokeniser.sep_token_id
+    config['end_token'] = '&' if not config['bpe_tokeniser'] else tokeniser.eos_token
+    config['vocab_size'] = 530 if not config['bpe_tokeniser'] else tokeniser.vocab_size
+
+    print(f'Vocab Size: {config["vocab_size"]}')
 
     print("Reading dataset...")
-    dataset = Uspto50('~/research/x-transformers/data/uspto50/uspto_50.pickle', 0.5, forward=False)
+    dataset_filename = 'data/uspto50/uspto_50.pickle' if config['filter_value'] == 0 else f'data/uspto50/uspto_50_filtered_{config["filter_value"]}.pickle'
+    dataset = Uspto50(dataset_filename, 0.5, forward=False)
     # dataset = UsptoMixed('/scratch/arihanth.srikar/uspto_mixed.pickle', 0.5)
     print("Finished dataset.")
 
     print("Building data module...")
-    dm = FineTuneReactionDataModule(
-            dataset,
-            tokeniser,
-            config['batch_size'],
-            config['block_size'],
-            forward_pred=False,
-            val_idxs=dataset.val_idxs,
-            test_idxs=dataset.test_idxs,
-            train_token_batch_size=None,
-            num_buckets=24,
-            unified_model=False,
-        )
+    if not config['bpe_tokeniser']:
+        dm = FineTuneReactionDataModule(
+                dataset,
+                tokeniser,
+                config['batch_size'],
+                config['block_size'],
+                forward_pred=False,
+                val_idxs=dataset.val_idxs,
+                test_idxs=dataset.test_idxs,
+                train_token_batch_size=None,
+                num_buckets=24,
+                unified_model=False,
+            )
+    else:
+        dm = RetroDataModule(
+                dataset,
+                tokeniser,
+                config['batch_size'],
+                config['block_size'],
+                forward_pred=False,
+                val_idxs=dataset.val_idxs,
+                test_idxs=dataset.test_idxs,
+                train_token_batch_size=None,
+                num_buckets=24,
+                unified_model=False,
+            )
     num_available_cpus = len(os.sched_getaffinity(0))
     num_available_gpus = torch.cuda.device_count()
     num_workers = num_available_cpus // num_available_gpus
@@ -371,7 +406,29 @@ if __name__ == '__main__':
 
     else:
         # manually load data
-        dm.setup('placeholder')
+        dm.setup()
+
+        # for batch_id, batch in enumerate(dm.test_dataloader()):
+        #     products  = batch["encoder_input"].transpose(0, 1)
+        #     reactants = batch["decoder_input"].transpose(0, 1)
+
+        #     decoded_products = tokeniser.batch_decode(products, skip_special_tokens=True)
+        #     decoded_reactants = tokeniser.batch_decode(reactants, skip_special_tokens=True)
+        #     print("Tokenizer decoding")
+        #     for r, p in zip(decoded_reactants, decoded_products):
+        #         print(f"{r} -> {p}")
+        #     print()
+
+        #     prods = [''.join([model.token_decode[t.item()] for t in prod if t.item() != model.config['pad_token_id']])[3:-4].split('.') for prod in products]
+        #     reacts = [''.join([model.token_decode[t.item()] for t in react if t.item() != model.config['pad_token_id']])[3:-4].split('.') for react in reactants]
+            
+        #     print("My decoding")
+        #     for r, p in zip(reacts, prods):
+        #         print(f"{r} -> {p}")
+        #     print()
+        #     break
+
+        # exit()
 
         # device = f'cuda:{config["device_ids"][0]}'
         device = f'cuda'
