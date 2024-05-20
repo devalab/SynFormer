@@ -408,29 +408,6 @@ if __name__ == '__main__':
         # manually load data
         dm.setup()
 
-        # for batch_id, batch in enumerate(dm.test_dataloader()):
-        #     products  = batch["encoder_input"].transpose(0, 1)
-        #     reactants = batch["decoder_input"].transpose(0, 1)
-
-        #     decoded_products = tokeniser.batch_decode(products, skip_special_tokens=True)
-        #     decoded_reactants = tokeniser.batch_decode(reactants, skip_special_tokens=True)
-        #     print("Tokenizer decoding")
-        #     for r, p in zip(decoded_reactants, decoded_products):
-        #         print(f"{r} -> {p}")
-        #     print()
-
-        #     prods = [''.join([model.token_decode[t.item()] for t in prod if t.item() != model.config['pad_token_id']])[3:-4].split('.') for prod in products]
-        #     reacts = [''.join([model.token_decode[t.item()] for t in react if t.item() != model.config['pad_token_id']])[3:-4].split('.') for react in reactants]
-            
-        #     print("My decoding")
-        #     for r, p in zip(reacts, prods):
-        #         print(f"{r} -> {p}")
-        #     print()
-        #     break
-
-        # exit()
-
-        # device = f'cuda:{config["device_ids"][0]}'
         device = f'cuda'
         model_criteria = ['last', 'val_accuracy', 'val_partial_accuracy', 'val_index']
         model_criteria = ['last']
