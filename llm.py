@@ -275,7 +275,7 @@ if __name__ == '__main__':
     config['end_token_id'] = tokeniser.vocab[tokeniser.end_token] if not config['bpe_tokeniser'] else tokeniser.eos_token_id
     config['sep_token_id'] = tokeniser.vocab[tokeniser.sep_token] if not config['bpe_tokeniser'] else tokeniser.sep_token_id
     config['end_token'] = '&' if not config['bpe_tokeniser'] else tokeniser.eos_token
-    config['vocab_size'] = 530 if not config['bpe_tokeniser'] else tokeniser.vocab_size
+    config['vocab_size'] = config['vocab_size'] if not config['bpe_tokeniser'] else tokeniser.vocab_size
 
     print(f'Vocab Size: {config["vocab_size"]}')
 
