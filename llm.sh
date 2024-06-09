@@ -15,7 +15,7 @@ scp ada:/share1/arihanth.srikar/zinc.zip /scratch/arihanth.srikar
 unzip /scratch/arihanth.srikar/zinc.zip -d /scratch/arihanth.srikar
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto_mixed \
     --run test1 \
     --rotary_emb \
@@ -38,7 +38,7 @@ python llm.py \
     --train \
     --log
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto_mixed \
     --run test1 \
     --rotary_emb \
@@ -60,7 +60,7 @@ python llm.py \
     --save_dir /scratch/arihanth.srikar
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p1 \
     --rotary_emb \
@@ -83,7 +83,7 @@ python llm.py \
     --log
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p2 \
     --rotary_emb \
@@ -106,7 +106,7 @@ python llm.py \
     --log
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p3 \
     --rotary_emb \
@@ -129,7 +129,7 @@ python llm.py \
     --log
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p4 \
     --rotary_emb \
@@ -152,7 +152,7 @@ python llm.py \
     --log
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run bpe \
     --rotary_emb \
@@ -176,7 +176,7 @@ python llm.py \
     --train \
     --log
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run bpe \
     --rotary_emb \
@@ -199,7 +199,7 @@ python llm.py \
     --save_dir /scratch/arihanth.srikar
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run filtered_10 \
     --rotary_emb \
@@ -223,7 +223,7 @@ python llm.py \
     --train \
     --log
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run filtered_10 \
     --rotary_emb \
@@ -246,7 +246,7 @@ python llm.py \
     --save_dir /scratch/arihanth.srikar
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run best_10 \
     --rotary_emb \
@@ -269,7 +269,7 @@ python llm.py \
     --train \
     --log
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run best_10 \
     --rotary_emb \
@@ -291,7 +291,7 @@ python llm.py \
     --save_dir /scratch/arihanth.srikar
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run best_100 \
     --rotary_emb \
@@ -314,7 +314,7 @@ python llm.py \
     --train \
     --log
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run best_100 \
     --rotary_emb \
@@ -336,7 +336,7 @@ python llm.py \
     --save_dir /scratch/arihanth.srikar
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run best_500 \
     --rotary_emb \
@@ -359,7 +359,7 @@ python llm.py \
     --train \
     --log
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run best_500 \
     --rotary_emb \
@@ -381,7 +381,7 @@ python llm.py \
     --save_dir /scratch/arihanth.srikar
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run best_5000 \
     --rotary_emb \
@@ -404,7 +404,7 @@ python llm.py \
     --train \
     --log
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run best_5000 \
     --rotary_emb \
@@ -426,7 +426,7 @@ python llm.py \
     --save_dir /scratch/arihanth.srikar
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p3_with_residual_no_cross_attn_res \
     --rotary_emb \
@@ -450,7 +450,7 @@ python llm.py \
     --train \
     --log
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p3_with_residual_no_cross_attn_res \
     --rotary_emb \
@@ -474,7 +474,7 @@ python llm.py \
     --save_dir /scratch/arihanth.srikar
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p3_ablation_pos_emb \
     --rotary_emb \
@@ -497,7 +497,7 @@ python llm.py \
     --train \
     --log
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p3_ablation_pos_emb \
     --rotary_emb \
@@ -521,7 +521,7 @@ python llm.py \
 
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p3_ablation_act_fn \
     --rotary_emb \
@@ -544,7 +544,7 @@ python llm.py \
     --train \
     --log
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p3_ablation_act_fn \
     --rotary_emb \
@@ -568,7 +568,7 @@ python llm.py \
 
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p3_ablation_res \
     --rotary_emb \
@@ -591,7 +591,7 @@ python llm.py \
     --train \
     --log
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p3_ablation_res \
     --rotary_emb \
@@ -615,7 +615,7 @@ python llm.py \
 
 
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p3_with_residual \
     --rotary_emb \
@@ -638,7 +638,7 @@ python llm.py \
     --train \
     --log
 python llm.py \
-    --task pathformer \
+    --task SynFormer \
     --project uspto50 \
     --run p3_with_residual \
     --rotary_emb \
