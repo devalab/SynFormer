@@ -3,6 +3,8 @@ An encoder-decoder transformer model that models retrosynthetic analysis along w
 
 `llm.py` contains the code to train and evaluate the model. All commands, including the ablation studies, are in `llm.sh`. The dataset can be found at `data/uspto50/uspto_50.pickle`.
 
+The code to our metric - Retrosynthesis Refinement Index (RRI), can be found at `benchmark.py,`, and the results of analyzing various algorithms with our metric can be found at `benchmark.ipynb`.
+
 Our model can be trained using the following command:
 ```python
 python llm.py \
