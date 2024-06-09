@@ -10,10 +10,6 @@
 mkdir -p /scratch/arihanth.srikar/
 export PYTHONUNBUFFERED=1
 
-scp ada:/share1/arihanth.srikar/uspto_mixed.pickle /scratch/arihanth.srikar
-scp ada:/share1/arihanth.srikar/zinc.zip /scratch/arihanth.srikar
-unzip /scratch/arihanth.srikar/zinc.zip -d /scratch/arihanth.srikar
-
 python llm.py \
     --task SynFormer \
     --project uspto_mixed \
