@@ -1,0 +1,3 @@
+target_smiles,predicted_smiles,input_smiles,predicted_smiles_0,predicted_smiles_1,predicted_smiles_2,predicted_smiles_3,predicted_smiles_4
+"['COC(CCC(c1ccc(O)cc1O)=O)=O', 'O1C=CCCC1']",,['O(C(CCC(=O)c1c(O)cc(OC2CCCCO2)cc1)=O)C'],"['C1=COCCC1', 'COC(=O)CCC(=O)c1ccc(O)cc1O']","['C1=COCCC1', 'COC(=O)CCC(=O)c1ccc(O)cc1O']","['C1=COCCC1', 'COC(=O)CCC(=O)c1ccc(O)cc1O']","['C1=COCCC1', 'COC(=O)CCC(=O)c1ccc(O)cc1O']","['C1=COCCC1', 'COC(=O)CCC(=O)c1ccc(O)cc1O']"
+"['COC(=O)c1cccc(C(=O)O)c1', 'Nc1cccnc1N']",,['c12ncccc1nc(-c1cccc(C(OC)=O)c1)[nH]2'],"['COC(=O)c1cccc(C(=O)O)c1', 'Nc1cccnc1N']","['COC(=O)c1cccc(C(=O)O)c1', 'Nc1cccnc1N']","['COC(=O)c1cccc(C(=O)O)c1', 'Nc1cccnc1N']","['COC(=O)c1cccc(C(=O)O)c1', 'Nc1cccnc1N']","['COC(=O)c1cccc(C(=O)O)c1', 'Nc1cccnc1N']"

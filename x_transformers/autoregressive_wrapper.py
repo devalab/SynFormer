@@ -341,10 +341,226 @@ class AutoregressiveWrapper(Module):
         out, = unpack(out, ps, '* n')
 
         return out
-    
+
     @torch.no_grad()
     @eval_decorator
     def beam_generate(
+        self,
+        prompts,
+        seq_len,
+        eos_token=None,
+        temperature=1.,
+        prompt_lens: Optional[Tensor] = None,
+        filter_logits_fn: Callable = top_k,
+        restrict_to_max_seq_len=True,
+        amateur_model: Optional[Union[Module, Tuple[Module]]] = None,
+        filter_kwargs: dict = dict(),
+        contrastive_decode_kwargs: Union[dict, Tuple[dict]] = dict(
+            beta=0.5,
+            alpha=0.1
+        ),
+        cache_kv=True,
+        num_beams=3,
+        **kwargs
+    ):
+        max_seq_len, device = self.max_seq_len, prompts.device
+        prompts, _ = pack([prompts], '* n')
+        b, t = prompts.shape
+
+        # Handle variable length prompts (prefixes)
+        seq_start_pos = None
+        if exists(prompt_lens):
+            prompts = align_right(prompts, prompt_lens, pad_id=self.pad_value)
+            seq_start_pos = t - prompt_lens
+
+        # Beam search initialization
+        beam_width = num_beams
+        sequences = [[list(prompts), 0.0]]
+        final_out = []
+        
+        for _ in range(max_seq_len):
+            all_candidates = []
+            
+            for seq, score in sequences:
+                # Generate next token probabilities
+                input_tensor = torch.tensor(seq).unsqueeze(0).to(device)
+                outputs, _ = self.net(
+                    input_tensor, 
+                    return_intermediates=True, 
+                    seq_start_pos=seq_start_pos, 
+                    **kwargs
+                )
+                next_token_logits = outputs[:, -1, :]
+                next_token_probs = torch.softmax(next_token_logits, dim=-1)
+                
+                # Get top beam_width tokens and their probabilities
+                top_probs, top_ids = torch.topk(next_token_probs, beam_width)
+                
+                for i in range(beam_width):
+                    candidate = [seq + [top_ids[0, i].item()], score - torch.log(top_probs[0, i]).item()]
+                    all_candidates.append(candidate)
+            
+            # Select beam_width best sequences
+            ordered = sorted(all_candidates, key=lambda x: x[1])
+            sequences = ordered[:beam_width]
+
+            new_sequences = []
+            for i in range(beam_width):
+                temp_seq = torch.tensor(sequences[i][0])
+                if (temp_seq == eos_token).any() or (temp_seq == self.pad_value).any():
+                    final_out.append(temp_seq)
+                    beam_width -= 1
+                    if beam_width == 0:
+                        break
+                else:
+                    new_sequences.append(sequences[i])
+            sequences = new_sequences
+        
+        while len(final_out) < num_beams:
+            final_out.append(torch.tensor(sequences[0][0]))
+            sequences.pop(0)
+
+        max_pad_len = max([len(seq) for seq in final_out])
+        for i in range(num_beams):
+            final_out[i] = F.pad(torch.tensor(final_out[i]), (0, max_pad_len - len(final_out[i])), value=self.pad_value)
+        out = torch.stack(final_out, dim=0)
+
+        if exists(eos_token):
+            # mask out everything after the eos tokens
+            is_eos_tokens = (out == eos_token)
+            shifted_is_eos_tokens = F.pad(is_eos_tokens, (1, -1))
+            mask = shifted_is_eos_tokens.float().cumsum(dim = -1) >= 1
+            out = out.masked_fill(mask, self.pad_value)
+
+        out = out[:, t:]
+        
+        return out
+    
+    @torch.no_grad()
+    @eval_decorator
+    def beam_generate_new(
+        self,
+        prompts,
+        seq_len,
+        eos_token=None,
+        temperature=1.,
+        prompt_lens: Optional[Tensor] = None,
+        filter_logits_fn: Callable = top_k,
+        restrict_to_max_seq_len=True,
+        amateur_model: Optional[Union[Module, Tuple[Module]]] = None,
+        filter_kwargs: dict = dict(),
+        contrastive_decode_kwargs: Union[dict, Tuple[dict]] = dict(
+            beta=0.5,
+            alpha=0.1
+        ),
+        cache_kv=True,
+        num_beams=3,
+        **kwargs
+    ):
+        max_seq_len, device = self.max_seq_len, prompts.device
+        prompts, _ = pack([prompts], '* n')
+        b, t = prompts.shape
+
+        # Handle variable length prompts (prefixes)
+        seq_start_pos = None
+        if exists(prompt_lens):
+            prompts = align_right(prompts, prompt_lens, pad_id=self.pad_value)
+            seq_start_pos = t - prompt_lens
+
+        # Initialize beams
+        beam_scores = torch.zeros((b, num_beams), device=device)
+        beam_outputs = prompts.unsqueeze(1).expand(b, num_beams, t)
+        beam_caches = [None] * num_beams if cache_kv else [None]
+
+        if exists(amateur_model):
+            amateur_model = cast_tuple(amateur_model)
+            contrastive_decode_kwargs = cast_tuple(contrastive_decode_kwargs)
+            assert len(amateur_model) == len(contrastive_decode_kwargs)
+            amateur_caches = [[None] * len(amateur_model) for _ in range(num_beams)]
+            filter_logits_fn = identity
+
+        for step in range(seq_len):
+            all_candidates = []
+
+            for beam_idx in range(num_beams):
+                current_output = beam_outputs[:, beam_idx]
+                cache = beam_caches[beam_idx]
+
+                if restrict_to_max_seq_len:
+                    max_len_exceeded = current_output.shape[-1] > max_seq_len
+                    assert not (cache_kv and max_len_exceeded and not self.net.can_cache_kv_outside_max_seq_len), 'the network cannot use cached key values when decoding outside the max sequence length.'
+                    x = current_output[:, -max_seq_len:]
+                    if exists(cache):
+                        for inter in cache.attn_intermediates:
+                            inter.cached_kv = [t[..., -(max_seq_len - 1):, :] for t in inter.cached_kv]
+
+                logits, new_cache = self.net(
+                    x,
+                    return_intermediates=True,
+                    cache=cache,
+                    seq_start_pos=seq_start_pos,
+                    **kwargs
+                )
+
+                if cache_kv and self.net.can_cache_kv:
+                    beam_caches[beam_idx] = new_cache
+
+                logits = logits[:, -1]
+
+                if exists(amateur_model):
+                    for i, (amateur, amateur_cache, amateur_contrastive_decode_kwargs) in enumerate(zip(amateur_model, amateur_caches[beam_idx], contrastive_decode_kwargs)):
+                        amateur_logits, next_amateur_cache = amateur(
+                            x,
+                            return_intermediates=True,
+                            cache=amateur_cache,
+                            seq_start_pos=seq_start_pos,
+                            **kwargs
+                        )
+
+                        amateur_logits = amateur_logits[:, -1]
+                        assert amateur_logits.shape == logits.shape, 'logits dimension are not the same between amateur and expert model'
+                        logits = contrastive_decode_fn(logits, amateur_logits, **amateur_contrastive_decode_kwargs)
+
+                        if cache_kv and amateur.can_cache_kv:
+                            amateur_caches[beam_idx][i] = next_amateur_cache
+
+                filtered_logits = filter_logits_fn(logits, **filter_kwargs)
+                probs = F.softmax(filtered_logits / temperature, dim=-1)
+                top_k_probs, top_k_ids = probs.topk(num_beams, dim=-1)
+
+                for k in range(num_beams):
+                    candidate = {
+                        'seq': torch.cat([current_output, top_k_ids[:, k].unsqueeze(-1)], dim=-1),
+                        'score': beam_scores[:, beam_idx] + top_k_probs[:, k].log(),
+                        'cache': new_cache if cache_kv else None,
+                        'amateur_caches': amateur_caches[beam_idx] if exists(amateur_model) else None
+                    }
+                    all_candidates.append(candidate)
+
+            # Select top num_beams candidates
+            ordered = sorted(all_candidates, key=lambda c: c['score'], reverse=True)
+            beam_outputs = torch.stack([candidate['seq'] for candidate in ordered[:num_beams]], dim=1)
+            beam_scores = torch.stack([candidate['score'] for candidate in ordered[:num_beams]], dim=1)
+            if cache_kv:
+                beam_caches = [candidate['cache'] for candidate in ordered[:num_beams]]
+            if exists(amateur_model):
+                amateur_caches = [candidate['amateur_caches'] for candidate in ordered[:num_beams]]
+
+            if (beam_outputs[:, :, -1] == eos_token).any() or (beam_outputs[:, :, -1] == self.pad_value).any():
+                break
+
+        if exists(eos_token):
+            is_eos_tokens = (beam_outputs == eos_token)
+            shifted_is_eos_tokens = F.pad(is_eos_tokens, (1, -1))
+            mask = shifted_is_eos_tokens.float().cumsum(dim=-1) >= 1
+            beam_outputs = beam_outputs.masked_fill(mask, self.pad_value)
+
+        beam_outputs = beam_outputs[:, :, t:]
+        return beam_outputs.view(b, num_beams, -1)  # reshape if necessary
+    
+    @torch.no_grad()
+    @eval_decorator
+    def beam_generate_old(
         self, 
         enc, 
         enc_mask = None,

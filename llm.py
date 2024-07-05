@@ -90,7 +90,7 @@ config = vars(parser.parse_args())
 config["data_dir"] = config["data_dir"] + config["task"]
 
 
-class Chemformer(pl.LightningModule):
+class SynFormer(pl.LightningModule):
     def __init__(self, config: dict) -> None:
         super().__init__()
         self.config = config
@@ -210,15 +210,33 @@ class Chemformer(pl.LightningModule):
             gens = [t.split('.') for t in tokeniser.batch_decode(gen_seq, skip_special_tokens=True)]
         
         return prods, reacts, gens
-
+    
     @torch.no_grad()
     def beam_generate(self, batch):
         products  = batch["encoder_input"].transpose(0, 1)
         reactants = batch["decoder_input"].transpose(0, 1)
         src_mask  = products != self.config['pad_token_id']
 
+        gen_seq = self.llm.beam_generate(seq_in=products, seq_out_start=reactants[:, :1], seq_len=reactants.shape[1], 
+                                    mask=src_mask, eos_token=self.config['end_token_id'], filter_kwargs={'k': 1}, 
+                                    num_beams=self.config['beam_width'])
+        gen_seq = gen_seq.view(self.config['beam_width'], -1)
+
+        prods = [''.join([self.token_decode[t.item()] for t in prod if t.item() != self.config['pad_token_id']])[1:-1].split('.') for prod in products]
+        reacts = [''.join([self.token_decode[t.item()] for t in react if t.item() != self.config['pad_token_id']])[1:-1].split('.') for react in reactants]
+        gens = [''.join([self.token_decode[t.item()] for t in gen if t.item() != self.config['pad_token_id']]) for gen in gen_seq]
+        gens = [g[:g.find(config['end_token'])].split('.') if g.find(config['end_token']) != -1 else g.split('.') for g in gens]
+        
+        return prods, reacts, gens
+
+    @torch.no_grad()
+    def beam_generate_old(self, batch):
+        products  = batch["encoder_input"].transpose(0, 1)
+        reactants = batch["decoder_input"].transpose(0, 1)
+        src_mask  = products != self.config['pad_token_id']
+
         beam_width = self.config['beam_width']
-        gen_seq, probs = self.llm.beam_generate(seq_in=products, mask=src_mask, beam_width=beam_width)
+        gen_seq, probs = self.llm.beam_generate_old(seq_in=products, mask=src_mask, beam_width=beam_width)
 
         if not self.config['bpe_tokeniser']:
             gen_seq = gen_seq[:, 1:]
@@ -325,7 +343,7 @@ if __name__ == '__main__':
     train_steps = math.ceil(batches_per_gpu / config['grad_accum']) * config['num_epochs']
     config['num_steps'] = train_steps
 
-    model = Chemformer(config)
+    model = SynFormer(config)
 
     logger = WandbLogger(
         # entity=config['entity'],
@@ -406,6 +424,9 @@ if __name__ == '__main__':
         trainer.test(model, datamodule=dm)
 
     else:
+        if config['beam_width'] > 1:
+            assert config['batch_size'] == 1, "Batch size must be 1 for beam search"
+
         # manually load data
         dm.setup()
 
@@ -419,7 +440,7 @@ if __name__ == '__main__':
                 ckpt = [ckpt for ckpt in model_ckpt if criteria in ckpt][-1]
             except:
                 continue
-            model = Chemformer.load_from_checkpoint(ckpt, config=config)
+            model = SynFormer.load_from_checkpoint(ckpt, config=config)
             print(f"Loaded model from {ckpt}")
             model = model.to(device)
             model = model.eval()
@@ -443,14 +464,6 @@ if __name__ == '__main__':
                         target_smiles.extend(reacts)
                         predicted_smiles.extend(gens) if config['beam_width'] == 1 else predicted_smiles.extend([gens])
                         
-                try:
-                    # get metrics
-                    LLM_metrics = Metrics(target_smiles, predicted_smiles, f'{config["run"]}_{split}_{criteria}_beam_{config["beam_width"]}')
-                    metrics = LLM_metrics.get_metrics()
-                    print(LLM_metrics.print_metrics())
-                except:
-                    pass
-                
                 # update dataframe
                 df['input_smiles'] = input_smiles
                 df['target_smiles'] = target_smiles
@@ -458,8 +471,17 @@ if __name__ == '__main__':
                     df['predicted_smiles'] = predicted_smiles
                 else:
                     for beam_id in range(config['beam_width']):
+                        print(f'predicted_smiles_{beam_id}: {[pred[beam_id] for pred in predicted_smiles]}')
                         df[f'predicted_smiles_{beam_id}'] = [pred[beam_id] for pred in predicted_smiles]
                 print(df)
+
+                try:
+                    # get metrics
+                    LLM_metrics = Metrics(target_smiles, predicted_smiles if config['beam_width'] == 1 else [pred[0] for pred in predicted_smiles], f'{config["run"]}_{split}_{criteria}_beam_{config["beam_width"]}')
+                    metrics = LLM_metrics.get_metrics()
+                    print(LLM_metrics.print_metrics())
+                except:
+                    pass
                 
                 # save dataframe and metrics
                 # save_dir = f'{config["save_dir"]}/results'

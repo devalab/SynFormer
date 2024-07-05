@@ -1,0 +1,3 @@
+target_smiles,predicted_smiles,input_smiles,predicted_smiles_0,predicted_smiles_1,predicted_smiles_2
+"['C1=COCCC1', 'COC(=O)CCC(=O)c1ccc(O)cc1O']",,['c1(O)c(C(CCC(=O)OC)=O)ccc(OC2OCCCC2)c1'],"['C1=COCCC1', 'COC(=O)CCC(=O)c1ccc(O)cc1O']","['c1c(O)cc(O)c(C(CCC(OC)=O)=O)c1', 'C1CCC=CO1']","['c1c(O)cc(O)c(C(=O)CCC(OC)=O)c1', 'C1CCC=CO1']"
+"['O(C(=O)c1cc(C(O)=O)ccc1)C', 'n1cccc(N)c1N']",,['c1cc(C(=O)OC)cc(-c2nc3cccnc3[nH]2)c1'],"['COC(=O)c1cccc(C(=O)O)c1', 'Nc1cccnc1N']","['COC(=O)c1cccc(C(=O)O)c1', 'Nc1c(N)nccc1']","['c1ccc(C(O)=O)cc1C(OC)=O', 'c1ccc(N)c(N)n1']"

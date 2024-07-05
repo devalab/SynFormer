@@ -1767,7 +1767,12 @@ class XTransformer(nn.Module):
         return self.decoder.generate(seq_out_start, seq_len, context = encodings, context_mask = mask, **kwargs)
     
     @torch.no_grad()
-    def beam_generate(self, seq_in, mask = None, attn_mask = None, **kwargs):
+    def beam_generate(self, seq_in, seq_out_start, seq_len, mask = None, attn_mask = None, **kwargs):
+        encodings = self.encoder(seq_in, mask = mask, attn_mask = attn_mask, return_embeddings = True)
+        return self.decoder.beam_generate(seq_out_start, seq_len, context = encodings, context_mask = mask, **kwargs)
+    
+    @torch.no_grad()
+    def beam_generate_old(self, seq_in, mask = None, attn_mask = None, **kwargs):
         encodings = self.encoder(seq_in, mask = mask, attn_mask = attn_mask, return_embeddings = True)
         return self.decoder.beam_generate(enc=encodings, enc_mask=mask, **kwargs)
 
