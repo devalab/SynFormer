@@ -54,6 +54,7 @@ parser.add_argument('--beta2', type=float, default=0.999, help='beta2')
 parser.add_argument('--weight_decay', type=float, default=1e-1, help='weight decay')
 parser.add_argument('--lr_scheduler', type=str, default='onecycle', help='lr scheduler')
 parser.add_argument('--dividing_factor', type=float, default=10000, help='dividing factor for lr scheduler')
+parser.add_argument('--augment_fraction', type=float, default=0.5, help='filter value for dataset')
 parser.add_argument('--filter_value', type=int, default=0, help='filter value for dataset')
 parser.add_argument('--bpe_tokeniser', action=argparse.BooleanOptionalAction, help='whether to use bpe tokeniser')
 
@@ -281,7 +282,7 @@ if __name__ == '__main__':
 
     print("Reading dataset...")
     dataset_filename = 'data/uspto50/uspto_50.pickle' if config['filter_value'] == 0 else f'data/uspto50/uspto_50_filtered_{config["filter_value"]}.pickle'
-    dataset = Uspto50(dataset_filename, 0.5, forward=False)
+    dataset = Uspto50(dataset_filename, config['augment_fraction'], forward=False)
     # dataset = UsptoMixed('/scratch/arihanth.srikar/uspto_mixed.pickle', 0.5)
     print("Finished dataset.")
 
