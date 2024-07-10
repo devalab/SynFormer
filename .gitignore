@@ -131,3 +131,4 @@ dmypy.json
 # custom
 logs/
 *.ckpt
+data/uspto_mixed

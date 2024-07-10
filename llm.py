@@ -300,8 +300,10 @@ if __name__ == '__main__':
 
     print("Reading dataset...")
     dataset_filename = 'data/uspto50/uspto_50.pickle' if config['filter_value'] == 0 else f'data/uspto50/uspto_50_filtered_{config["filter_value"]}.pickle'
-    dataset = Uspto50(dataset_filename, config['augment_fraction'], forward=False)
-    # dataset = UsptoMixed('/scratch/arihanth.srikar/uspto_mixed.pickle', 0.5)
+    if config['project'] == 'uspto50':
+        dataset = Uspto50(dataset_filename, config['augment_fraction'], forward=False)
+    elif config['project'] == 'uspto_mixed':
+        dataset = UsptoMixed('data/uspto_mixed/uspto_mixed.pickle', config['augment_fraction'])
     print("Finished dataset.")
 
     print("Building data module...")
@@ -408,7 +410,7 @@ if __name__ == '__main__':
 
     trainer = pl.Trainer(
         accelerator='gpu', devices=-1, strategy='ddp_find_unused_parameters_True',
-        # accelerator='gpu', devices=1, strategy='auto',
+        # accelerator='gpu', devices=-1, strategy='auto',
         max_epochs=config['num_epochs'], logger=logger,
         precision='bf16-mixed' if config['set_precision'] else '32-true',
         gradient_clip_val=0.5, gradient_clip_algorithm='norm',

@@ -1,11 +1,11 @@
 +-----------------------------------------------------------------+
-|          Computed Metrics for p3_ablation_res_test_last         |
+|      Computed Metrics for p3_ablation_res_test_last_beam_1      |
 +-------------------+----------+--------------------+-------------+
 |       Metric      | Original | Halogen Correction | Final Index |
 +-------------------+----------+--------------------+-------------+
-|      Accuracy     |  0.532   |       0.558        |    0.545    |
-| Adjusted Accuracy |  0.548   |       0.575        |    0.561    |
-|  Partial Accuracy |  0.599   |       0.613        |    0.606    |
-| Adjusted Tanimoto |  0.784   |       0.784        |    0.784    |
-|     Our Score     |  0.597   |       0.616        |    0.607    |
+|      Accuracy     |  0.529   |       0.553        |    0.541    |
+| Adjusted Accuracy |  0.544   |       0.569        |    0.557    |
+|  Partial Accuracy |  0.593   |       0.607        |    0.600    |
+| Adjusted Tanimoto |  0.761   |       0.761        |    0.761    |
+|     Our Score     |  0.590   |       0.607        |    0.599    |
 +-------------------+----------+--------------------+-------------+
