@@ -132,3 +132,4 @@ dmypy.json
 logs/
 *.ckpt
 data/uspto_mixed
+data/uspto_full
