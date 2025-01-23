@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/791427516.svg)](https://doi.org/10.5281/zenodo.14725617)
+
 # SynFormer
 An encoder-decoder transformer model that models retrosynthetic analysis along with novel metrics for evaluation. We use the [X-transformer](https://github.com/lucidrains/x-transformers/tree/main) library and the dataloader from [Chemformer](https://github.com/MolecularAI/Chemformer/tree/main).
 
